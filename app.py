@@ -7,6 +7,7 @@ import soundfile as sf
 import io
 from audio_recorder_streamlit import audio_recorder
 
+
 # 1. Cấu hình giao diện chạy mượt mà trên trình duyệt điện thoại
 st.set_page_config(page_title="Physics Audio Analyzer Pro", layout="wide")
 
@@ -103,9 +104,35 @@ with tab1:
     audio_data_bytes = audio_recorder()
 
 with tab2:
-    uploaded_file = st.file_uploader("Chọn file âm thanh (.wav, .flac, .mp3)", type=["wav", "flac", "mp3"])
+    st.subheader("📁 Tải file nhạc từ máy tính/điện thoại")
+    
+    # Biến chọn file từ giao diện Streamlit:
+    uploaded_file = st.file_uploader("Chọn file âm thanh...", type=["wav", "mp3", "flac"])
+
     if uploaded_file is not None:
-        audio_data_bytes = uploaded_file.read()
+        with st.spinner("Đang nạp dữ liệu file nhạc..."):
+            try:
+                # Chuyển đổi file tải lên thành byte để đọc trực tiếp trên RAM đám mây
+                audio_bytes = uploaded_file.read()
+                pipeline.y, pipeline.sr = sf.read(io.BytesIO(audio_bytes))
+                
+                # Nếu là file Stereo (2 kênh), chuyển về Mono (1 kênh) để thuật toán phân tích chính xác
+                if len(pipeline.y.shape) > 1:
+                    pipeline.y = pipeline.y.mean(axis=1)
+                    
+                st.success(f"Nạp file thành công! Tần số lấy mẫu: {pipeline.sr} Hz")
+                
+                # --- Thực hiện chạy chuỗi thuật toán phân tích ---
+                zcr_features = pipeline.analyze_time_domain()
+                frequencies, fft_magnitude = pipeline.execute_fft_spectrum()
+                spec_f, spec_t, spectrogram_db, mfcc_features = pipeline.extract_advanced_features()
+                estimated_f0 = pipeline.estimate_pitch_autocorr()
+                
+                # Trực quan hóa kết quả lên giao diện web
+                pipeline.export_and_visualize(zcr_features, frequencies, fft_magnitude, spec_f, spec_t, spectrogram_db, mfcc_features, estimated_f0)
+                
+            except Exception as e:
+                st.error(f"Lỗi định dạng file hoặc lỗi phân tích: {e}")
 
 # --- KHỞI CHẠY PIPELINE VÀ HIỂN THỊ ĐỒ THỊ ---
 if audio_data_bytes is not None:
