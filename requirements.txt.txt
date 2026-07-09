@@ -1,0 +1,6 @@
+streamlit
+audio-recorder-streamlit
+numpy
+scipy
+matplotlib
+soundfile
